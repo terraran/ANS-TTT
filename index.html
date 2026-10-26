@@ -9,24 +9,25 @@
 <script>
 /* ===================== ตั้งค่า / CONFIG ===================== */
 const CONFIG = {
-  title: 'เลือกวันซ้อมทีม',
-  subtitle: 'ติ๊กทุกช่วงเวลาที่คุณว่าง แล้วกดส่ง',
+  // ข้อความที่มี { th, en } = แสดงตามภาษาที่เลือก (ปุ่ม ไทย | EN มุมขวาบน)
+  title: { th: 'เลือกวันซ้อมทีม', en: 'Pick Practice Days' },
+  subtitle: { th: 'ติ๊กทุกช่วงเวลาที่คุณว่าง แล้วกดส่ง', en: 'Tick every time slot you are free, then submit.' },
   // วาง URL ของ Apps Script Web App (ลงท้าย /exec) ตรงนี้
   // เว้นว่างไว้ = โหมดทดลอง (ข้อมูลตัวอย่าง เก็บในเครื่องนี้เท่านั้น)
   scriptUrl: 'https://script.google.com/macros/s/AKfycbyQuP3nHBj4EsVBJTwcCRwCDwx8d30B93OCXUViVyDy778QGTGvN9GPKXRLAiOK4BJh3A/exec',
   // ทีม: id ต้องตรงกับ TEAMS ใน Code.gs (= ชื่อแท็บใน Sheet) · ลิงก์ตรงของแต่ละทีม = index.html#chess
   teams: [
-    { id: 'chess', label: 'ทีมหมากรุก', icon: '♟️' },
-    { id: 'boardgame', label: 'ทีมบอร์ดเกม', icon: '🎲' },
+    { id: 'chess', label: { th: 'ทีมหมากรุก', en: 'Chess Team' }, icon: '♟️' },
+    { id: 'boardgame', label: { th: 'ทีมบอร์ดเกม', en: 'Board Game Team' }, icon: '🎲' },
   ],
   // คอลัมน์เวลา และแถววัน — ใส่ใน times ของแต่ละวันเฉพาะเวลาที่เลือกได้ (ช่องอื่นจะเป็น "—")
   times: ['14.30', '15.45'],
   days: [
-    { id: 'mon', label: 'จันทร์', times: ['14.30', '15.45'] },
-    { id: 'tue', label: 'อังคาร', times: ['14.30', '15.45'] },
-    { id: 'wed', label: 'พุธ', times: ['15.45'] },
-    { id: 'thu', label: 'พฤหัสบดี', times: ['15.45'] },
-    { id: 'fri', label: 'ศุกร์', times: ['14.30', '15.45'] },
+    { id: 'mon', label: { th: 'จันทร์', en: 'Monday' }, times: ['14.30', '15.45'] },
+    { id: 'tue', label: { th: 'อังคาร', en: 'Tuesday' }, times: ['14.30', '15.45'] },
+    { id: 'wed', label: { th: 'พุธ', en: 'Wednesday' }, times: ['15.45'] },
+    { id: 'thu', label: { th: 'พฤหัสบดี', en: 'Thursday' }, times: ['15.45'] },
+    { id: 'fri', label: { th: 'ศุกร์', en: 'Friday' }, times: ['14.30', '15.45'] },
   ],
   refreshSeconds: 30,
 };
@@ -53,7 +54,11 @@ main { max-width: 960px; margin: 0 auto; padding: 14px 16px 12px; }
 h1 { margin: 0 0 2px; font-size: 1.5rem; line-height: 1.3; }
 .sub { margin: 0 0 12px; color: var(--muted); }
 .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; min-height: 30px; margin-bottom: 4px; }
-.mock { display: inline-block; margin-left: auto; padding: 4px 10px; border-radius: 999px;
+.top-right { display: flex; align-items: center; gap: 10px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
+.lang { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--card); }
+.lang button { padding: 3px 12px; border-radius: 0; background: transparent; color: var(--muted); font-size: .85rem; }
+.lang button[aria-pressed=true] { background: var(--accent); color: var(--accent-ink); }
+.mock { display: inline-block; padding: 4px 10px; border-radius: 999px;
   background: var(--best); color: #2b2a27; font-size: .85rem; font-weight: 600; }
 a.back { display: inline-block; color: var(--muted); text-decoration: none; font-size: .95rem; }
 a.back:hover { color: var(--ink); }
@@ -79,7 +84,7 @@ input[type=text]:focus { outline: 2px solid var(--accent); outline-offset: 1px; 
 
 table.slots { width: calc(100% + 10px); border-collapse: separate; border-spacing: 5px; margin: 4px -5px 6px; }
 table.slots th { font-weight: 600; text-align: center; color: var(--muted); font-size: .9rem; }
-table.slots th.day { text-align: left; color: var(--ink); width: 88px; }
+table.slots th.day { text-align: left; color: var(--ink); width: 96px; }
 table.slots td { height: 36px; padding: 0; text-align: center; border-radius: 10px; }
 td.na { color: var(--muted); border: 1px dashed var(--line); font-size: .8rem; }
 .pick { display: flex; height: 100%; align-items: center; justify-content: center; gap: 6px; cursor: pointer;
@@ -103,6 +108,7 @@ button:disabled { opacity: .55; cursor: default; }
 .summary { margin: 0 0 6px; color: var(--muted); }
 .summary b { color: var(--ink); }
 .legend { font-size: .8rem; color: var(--muted); }
+.legend b { font-weight: 400; }
 .legend span { display: inline-block; width: 12px; height: 12px; border: 3px solid var(--best); border-radius: 3px;
   vertical-align: -2px; margin-right: 4px; }
 .updated { font-size: .8rem; color: var(--muted); margin-top: 6px; }
@@ -111,14 +117,19 @@ button:disabled { opacity: .55; cursor: default; }
 <body>
 <main>
   <div class="top">
-    <a href="#" class="back" id="back" hidden>‹ เปลี่ยนทีม</a>
-    <div id="mockBadge" class="mock" hidden>โหมดทดลอง — ยังไม่ได้เชื่อม Google Sheet (ข้อมูลอยู่ในเครื่องนี้เท่านั้น)</div>
+    <a href="#" class="back" id="back" data-t="back" hidden></a>
+    <div class="top-right">
+      <div id="mockBadge" class="mock" data-t="mock" hidden></div>
+      <div class="lang" role="group" aria-label="Language">
+        <button type="button" data-lang="th">ไทย</button><button type="button" data-lang="en">EN</button>
+      </div>
+    </div>
   </div>
 
   <!-- page 1: pick a team -->
   <section id="pickPage" hidden>
     <h1 id="title"></h1>
-    <p class="sub">เลือกทีมของคุณ</p>
+    <p class="sub" data-t="pickTeam"></p>
     <div class="teams" id="teams"></div>
   </section>
 
@@ -129,26 +140,26 @@ button:disabled { opacity: .55; cursor: default; }
 
     <div class="grid">
       <section class="card">
-        <h2>คำตอบของคุณ</h2>
+        <h2 data-t="yourAnswer"></h2>
         <form id="form" autocomplete="off">
-          <label class="field" for="name">ชื่อ</label>
-          <input type="text" id="name" maxlength="60" placeholder="พิมพ์ชื่อของคุณ" required>
+          <label class="field" for="name" data-t="name"></label>
+          <input type="text" id="name" maxlength="60" data-t-placeholder="namePh" required>
           <table class="slots" id="pickTable"></table>
-          <label class="field" for="note">หมายเหตุ (ไม่บังคับ)</label>
-          <input type="text" id="note" maxlength="200" placeholder="เช่น สัปดาห์แรกไม่ว่าง">
+          <label class="field" for="note" data-t="note"></label>
+          <input type="text" id="note" maxlength="200" data-t-placeholder="notePh">
           <div class="row">
-            <button type="submit" class="primary" id="submit">ส่งคำตอบ</button>
-            <button type="button" class="ghost" id="remove" hidden>ลบคำตอบของฉัน</button>
+            <button type="submit" class="primary" id="submit" data-t="submit"></button>
+            <button type="button" class="ghost" id="remove" data-t="remove" hidden></button>
           </div>
           <div class="msg" id="msg"></div>
         </form>
       </section>
 
       <section class="card">
-        <h2 id="results">ผลโหวต</h2>
+        <h2 id="results" data-t="results"></h2>
         <p class="summary" id="summary"></p>
         <table class="slots" id="resultTable"></table>
-        <div class="legend"><span></span>ช่วงที่ว่างตรงกันมากที่สุด</div>
+        <div class="legend"><span></span><b data-t="legend"></b></div>
         <div class="updated" id="updated"></div>
       </section>
     </div>
@@ -157,8 +168,44 @@ button:disabled { opacity: .55; cursor: default; }
 
 <script>
 const $ = (id) => document.getElementById(id);
+
+/* ---------- language ---------- */
+const TEXT = {
+  th: {
+    back: '‹ เปลี่ยนทีม', mock: 'โหมดทดลอง — ยังไม่ได้เชื่อม Google Sheet (ข้อมูลอยู่ในเครื่องนี้เท่านั้น)',
+    pickTeam: 'เลือกทีมของคุณ', yourAnswer: 'คำตอบของคุณ', name: 'ชื่อ', namePh: 'พิมพ์ชื่อของคุณ',
+    note: 'หมายเหตุ (ไม่บังคับ)', notePh: 'เช่น สัปดาห์แรกไม่ว่าง', submit: 'ส่งคำตอบ', remove: 'ลบคำตอบของฉัน',
+    results: 'ผลโหวต', legend: 'ช่วงที่ว่างตรงกันมากที่สุด', free: 'ว่าง', timeSuffix: ' น.', people: () => 'คน',
+    none: 'ยังไม่มีใครตอบ — เป็นคนแรกเลย!',
+    summary: (n, best, max) => `ตอบแล้ว <b>${n}</b> คน · ว่างตรงกันมากที่สุด: <b>${best}</b> (${max}/${n} คน)`,
+    updated: 'อัปเดตล่าสุด ', locale: 'th-TH',
+    loadFail: 'โหลดผลไม่สำเร็จ: ', saving: 'กำลังบันทึก…', saveFail: 'บันทึกไม่สำเร็จ: ',
+    needName: 'กรุณาใส่ชื่อ', needSlot: 'กรุณาเลือกอย่างน้อย 1 ช่วงเวลา',
+    saved: 'บันทึกแล้ว ✓ (ส่งซ้ำด้วยชื่อเดิม = แก้คำตอบ)', removed: 'ลบคำตอบแล้ว',
+    confirmRemove: (name) => `ลบคำตอบของ "${name}" ?`,
+  },
+  en: {
+    back: '‹ Change team', mock: 'Demo mode — not connected to Google Sheets (data stays on this device)',
+    pickTeam: 'Choose your team', yourAnswer: 'Your answer', name: 'Name', namePh: 'Type your name',
+    note: 'Note (optional)', notePh: 'e.g. busy the first week', submit: 'Submit', remove: 'Delete my answer',
+    results: 'Results', legend: 'Most people free', free: 'Free', timeSuffix: '', people: (n) => (n === 1 ? 'person' : 'people'),
+    none: 'No answers yet — be the first!',
+    summary: (n, best, max) => `<b>${n}</b> answered · most people free: <b>${best}</b> (${max}/${n})`,
+    updated: 'Last updated ', locale: 'en-GB',
+    loadFail: 'Could not load results: ', saving: 'Saving…', saveFail: 'Could not save: ',
+    needName: 'Please enter your name', needSlot: 'Please pick at least one time slot',
+    saved: 'Saved ✓ (submit again with the same name to change it)', removed: 'Your answer was deleted',
+    confirmRemove: (name) => `Delete the answer for "${name}"?`,
+  },
+};
+let lang = 'th';
+try { lang = new URLSearchParams(location.search).get('lang') || localStorage.getItem('daySurveyLang') || 'th'; } catch {}
+if (!TEXT[lang]) lang = 'th';
+const T = (k) => TEXT[lang][k];
+const L = (v) => (v && typeof v === 'object' ? v[lang] || v.th : v);   // CONFIG text: plain or { th, en }
+
 const MOCK = !CONFIG.scriptUrl || new URLSearchParams(location.search).has('mock');
-const SLOTS = CONFIG.days.flatMap((d) => d.times.map((t) => ({ id: `${d.id} ${t}`, label: `${d.label} ${t}` })));
+const SLOTS = CONFIG.days.flatMap((d) => d.times.map((t) => ({ id: `${d.id} ${t}`, day: d, time: t })));
 let team = null;      // current team object
 let state = { total: 0, counts: {}, mine: null };
 let busy = false;
@@ -221,15 +268,17 @@ function esc(s) {
 
 // Same day × time table for both the form and the results; cell(day, time) fills each available slot
 function slotTable(cell) {
-  return `<thead><tr><th></th>${CONFIG.times.map((t) => `<th>${esc(t)} น.</th>`).join('')}</tr></thead>
-    <tbody>${CONFIG.days.map((d) => `<tr><th class="day">${esc(d.label)}</th>${CONFIG.times.map((t) =>
+  return `<thead><tr><th></th>${CONFIG.times.map((t) => `<th>${esc(t + T('timeSuffix'))}</th>`).join('')}</tr></thead>
+    <tbody>${CONFIG.days.map((d) => `<tr><th class="day">${esc(L(d.label))}</th>${CONFIG.times.map((t) =>
       d.times.includes(t) ? cell(d, t, `${d.id} ${t}`) : '<td class="na">—</td>').join('')}</tr>`).join('')}
     </tbody>`;
 }
 
 function renderPicker() {
+  const checked = new Set([...document.querySelectorAll('#pickTable input:checked')].map((cb) => cb.value));
   $('pickTable').innerHTML = slotTable((d, t, id) =>
-    `<td><label class="pick"><input type="checkbox" value="${esc(id)}" aria-label="${esc(d.label + ' ' + t)}">ว่าง</label></td>`);
+    `<td><label class="pick"><input type="checkbox" value="${esc(id)}"${checked.has(id) ? ' checked' : ''}
+      aria-label="${esc(L(d.label) + ' ' + t)}">${esc(T('free'))}</label></td>`);
 }
 
 function renderResults() {
@@ -238,17 +287,17 @@ function renderResults() {
   const best = SLOTS.filter((s) => max > 0 && (counts[s.id] || 0) === max);
 
   $('summary').innerHTML = total === 0
-    ? 'ยังไม่มีใครตอบ — เป็นคนแรกเลย!'
-    : `ตอบแล้ว <b>${total}</b> คน · ว่างตรงกันมากที่สุด: <b>${best.map((b) => esc(b.label)).join(', ')}</b> (${max}/${total} คน)`;
+    ? esc(T('none'))
+    : T('summary')(total, best.map((b) => esc(`${L(b.day.label)} ${b.time}`)).join(', '), max);
 
   $('resultTable').innerHTML = slotTable((d, t, id) => {
     const n = counts[id] || 0;
     const pct = total ? Math.round((n / total) * 55) : 0;   // shade up to 55% of the accent colour
     return `<td class="res${max > 0 && n === max ? ' best' : ''}"
-      style="background:color-mix(in srgb, var(--heat) ${pct}%, transparent)">${n}<small>คน</small></td>`;
+      style="background:color-mix(in srgb, var(--heat) ${pct}%, transparent)">${n}<small>${esc(T('people')(n))}</small></td>`;
   });
 
-  $('updated').textContent = 'อัปเดตล่าสุด ' + new Date().toLocaleTimeString('th-TH');
+  $('updated').textContent = T('updated') + new Date().toLocaleTimeString(T('locale'));
   $('remove').hidden = !state.mine;
 }
 
@@ -274,27 +323,27 @@ async function refresh(fill) {
     renderResults();
     if (fill) fillMine();
   } catch (e) {
-    setMsg('โหลดผลไม่สำเร็จ: ' + e.message, true);
+    setMsg(T('loadFail') + e.message, true);
   }
 }
 
-async function send(payload, okText) {
+async function send(payload, okKey) {
   if (busy) return;
   busy = true;
   $('submit').disabled = $('remove').disabled = true;
-  setMsg('กำลังบันทึก…');
+  setMsg(T('saving'));
   try {
     state = await api.save({ team: team.id, ...payload });
     try { localStorage.setItem('daySurveyName', payload.name); } catch {}
     renderResults();
     if (payload.remove) fillMine();
-    setMsg(okText);
+    setMsg(T(okKey));
     // one-column layout (phones): results sit below the form, so bring them into view
     if (!payload.remove && matchMedia('(max-width: 760px)').matches) {
       $('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   } catch (e) {
-    setMsg('บันทึกไม่สำเร็จ: ' + e.message, true);
+    setMsg(T('saveFail') + e.message, true);
   } finally {
     busy = false;
     $('submit').disabled = $('remove').disabled = false;
@@ -305,15 +354,15 @@ $('form').addEventListener('submit', (e) => {
   e.preventDefault();
   const name = $('name').value.trim();
   const slots = [...document.querySelectorAll('#pickTable input:checked')].map((cb) => cb.value);
-  if (!name) return setMsg('กรุณาใส่ชื่อ', true);
-  if (!slots.length) return setMsg('กรุณาเลือกอย่างน้อย 1 ช่วงเวลา', true);
-  send({ name, slots, note: $('note').value.trim() }, 'บันทึกแล้ว ✓ (ส่งซ้ำด้วยชื่อเดิม = แก้คำตอบ)');
+  if (!name) return setMsg(T('needName'), true);
+  if (!slots.length) return setMsg(T('needSlot'), true);
+  send({ name, slots, note: $('note').value.trim() }, 'saved');
 });
 
 $('remove').addEventListener('click', () => {
   const name = $('name').value.trim();
-  if (!name || !confirm(`ลบคำตอบของ "${name}" ?`)) return;
-  send({ name, remove: true }, 'ลบคำตอบแล้ว');
+  if (!name || !confirm(T('confirmRemove')(name))) return;
+  send({ name, remove: true }, 'removed');
 });
 
 $('name').addEventListener('change', () => { setMsg(''); refresh(true); });
@@ -325,11 +374,12 @@ function route() {
   $('teamPage').hidden = !team;
   $('back').hidden = !team;
   clearInterval(timer);
-  if (!team) { document.title = CONFIG.title; return; }
+  if (!team) { document.title = L(CONFIG.title); return; }
 
-  document.title = `${team.label} · ${CONFIG.title}`;
-  $('teamTitle').textContent = `${team.icon} ${team.label}`;
+  document.title = `${L(team.label)} · ${L(CONFIG.title)}`;
+  $('teamTitle').textContent = `${team.icon} ${L(team.label)}`;
   state = { total: 0, counts: {}, mine: null };
+  $('pickTable').innerHTML = '';
   renderPicker();
   renderResults();
   setMsg('');
@@ -337,13 +387,35 @@ function route() {
   timer = setInterval(() => { if (!busy && !document.hidden) refresh(false); }, CONFIG.refreshSeconds * 1000);
 }
 
-$('title').textContent = CONFIG.title;
-$('subtitle').textContent = CONFIG.subtitle;
+// Static text + everything rendered from CONFIG; ticked boxes and typed text are kept
+function applyLang() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll('[data-t]').forEach((el) => { el.textContent = T(el.dataset.t); });
+  document.querySelectorAll('[data-t-placeholder]').forEach((el) => { el.placeholder = T(el.dataset.tPlaceholder); });
+  document.querySelectorAll('.lang button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.lang === lang));
+  $('title').textContent = L(CONFIG.title);
+  $('subtitle').textContent = L(CONFIG.subtitle);
+  $('teams').innerHTML = CONFIG.teams.map((t) =>
+    `<a class="team" href="#${esc(t.id)}"><span class="icon">${t.icon}</span><span class="name">${esc(L(t.label))}</span></a>`).join('');
+  document.title = team ? `${L(team.label)} · ${L(CONFIG.title)}` : L(CONFIG.title);
+  if (team) {
+    $('teamTitle').textContent = `${team.icon} ${L(team.label)}`;
+    renderPicker();
+    renderResults();
+    setMsg('');
+  }
+}
+
+document.querySelectorAll('.lang button').forEach((b) => b.addEventListener('click', () => {
+  lang = b.dataset.lang;
+  try { localStorage.setItem('daySurveyLang', lang); } catch {}
+  applyLang();
+}));
+
 $('mockBadge').hidden = !MOCK;
-$('teams').innerHTML = CONFIG.teams.map((t) =>
-  `<a class="team" href="#${esc(t.id)}"><span class="icon">${t.icon}</span><span class="name">${esc(t.label)}</span></a>`).join('');
 try { $('name').value = localStorage.getItem('daySurveyName') || ''; } catch {}
 window.addEventListener('hashchange', route);
+applyLang();
 route();
 </script>
 </body>
