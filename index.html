@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>เลือกวันซ้อมทีม</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai+Looped:wght@400;600;700&display=swap" rel="stylesheet">
+<script>
+/* ===================== ตั้งค่า / CONFIG ===================== */
+const CONFIG = {
+  title: 'เลือกวันซ้อมทีม',
+  subtitle: 'ติ๊กทุกช่วงเวลาที่คุณว่าง แล้วกดส่ง',
+  // วาง URL ของ Apps Script Web App (ลงท้าย /exec) ตรงนี้
+  // เว้นว่างไว้ = โหมดทดลอง (ข้อมูลตัวอย่าง เก็บในเครื่องนี้เท่านั้น)
+  scriptUrl: '',
+  // ทีม: id ต้องตรงกับ TEAMS ใน Code.gs (= ชื่อแท็บใน Sheet) · ลิงก์ตรงของแต่ละทีม = index.html#chess
+  teams: [
+    { id: 'chess', label: 'ทีมหมากรุก', icon: '♟️' },
+    { id: 'boardgame', label: 'ทีมบอร์ดเกม', icon: '🎲' },
+  ],
+  // คอลัมน์เวลา และแถววัน — ใส่ใน times ของแต่ละวันเฉพาะเวลาที่เลือกได้ (ช่องอื่นจะเป็น "—")
+  times: ['14.30', '15.45'],
+  days: [
+    { id: 'mon', label: 'จันทร์', times: ['14.30', '15.45'] },
+    { id: 'tue', label: 'อังคาร', times: ['14.30', '15.45'] },
+    { id: 'wed', label: 'พุธ', times: ['15.45'] },
+    { id: 'thu', label: 'พฤหัสบดี', times: ['15.45'] },
+    { id: 'fri', label: 'ศุกร์', times: ['14.30', '15.45'] },
+  ],
+  refreshSeconds: 30,
+};
+/* =========================================================== */
+</script>
+<style>
+:root {
+  --bg: #f4f1ea; --card: #fffdf8; --ink: #2b2a27; --muted: #77736a; --line: #e3ddd0;
+  --accent: #2f8f5b; --accent-ink: #fff; --heat: #2f8f5b; --best: #f2b134; --err: #c0392b;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1b19; --card: #262522; --ink: #ece8df; --muted: #a29d92; --line: #3a3833;
+    --accent: #45b07a; --accent-ink: #0f1a13; --heat: #45b07a; --best: #d99a1e; --err: #ef6f61;
+  }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: 'Noto Sans Thai Looped', system-ui, sans-serif; line-height: 1.5;
+}
+main { max-width: 960px; margin: 0 auto; padding: 14px 16px 12px; }
+h1 { margin: 0 0 2px; font-size: 1.5rem; line-height: 1.3; }
+.sub { margin: 0 0 12px; color: var(--muted); }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; min-height: 30px; margin-bottom: 4px; }
+.mock { display: inline-block; margin-left: auto; padding: 4px 10px; border-radius: 999px;
+  background: var(--best); color: #2b2a27; font-size: .85rem; font-weight: 600; }
+a.back { display: inline-block; color: var(--muted); text-decoration: none; font-size: .95rem; }
+a.back:hover { color: var(--ink); }
+
+/* team picker */
+.teams { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; max-width: 640px; }
+.team { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 32px 16px;
+  background: var(--card); border: 2px solid var(--line); border-radius: 16px; color: inherit; text-decoration: none;
+  transition: border-color .15s, transform .15s; }
+.team:hover, .team:focus-visible { border-color: var(--accent); transform: translateY(-2px); outline: none; }
+.team .icon { font-size: 3.2rem; line-height: 1; }
+.team .name { font-size: 1.35rem; font-weight: 700; }
+
+/* team page */
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+.card h2 { margin: 0 0 6px; font-size: 1.1rem; }
+label.field { display: block; font-weight: 600; margin-bottom: 4px; }
+input[type=text] { width: 100%; padding: 7px 12px; font: inherit; color: inherit; background: var(--bg);
+  border: 1px solid var(--line); border-radius: 10px; }
+input[type=text]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+table.slots { width: calc(100% + 10px); border-collapse: separate; border-spacing: 5px; margin: 4px -5px 6px; }
+table.slots th { font-weight: 600; text-align: center; color: var(--muted); font-size: .9rem; }
+table.slots th.day { text-align: left; color: var(--ink); width: 88px; }
+table.slots td { height: 36px; padding: 0; text-align: center; border-radius: 10px; }
+td.na { color: var(--muted); border: 1px dashed var(--line); font-size: .8rem; }
+.pick { display: flex; height: 100%; align-items: center; justify-content: center; gap: 6px; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 10px; user-select: none; color: var(--muted); }
+.pick input { width: 18px; height: 18px; accent-color: var(--accent); }
+.pick:has(input:checked) { border-color: var(--accent); color: var(--ink); font-weight: 600;
+  background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.pick:has(input:focus-visible) { outline: 2px solid var(--accent); }
+
+td.res { border: 1px solid var(--line); font-weight: 700; font-size: 1.15rem; }
+td.res small { display: block; font-size: .72rem; font-weight: 400; color: var(--muted); margin-top: -4px; }
+td.res.best { outline: 3px solid var(--best); outline-offset: -2px; }
+
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+button { font: inherit; font-weight: 600; padding: 8px 18px; border-radius: 10px; border: 0; cursor: pointer; }
+button.primary { background: var(--accent); color: var(--accent-ink); }
+button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+button:disabled { opacity: .55; cursor: default; }
+.msg { min-height: 1.5em; margin-top: 6px; font-size: .92rem; }
+.msg.err { color: var(--err); }
+.summary { margin: 0 0 6px; color: var(--muted); }
+.summary b { color: var(--ink); }
+.legend { font-size: .8rem; color: var(--muted); }
+.legend span { display: inline-block; width: 12px; height: 12px; border: 3px solid var(--best); border-radius: 3px;
+  vertical-align: -2px; margin-right: 4px; }
+.updated { font-size: .8rem; color: var(--muted); margin-top: 6px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <a href="#" class="back" id="back" hidden>‹ เปลี่ยนทีม</a>
+    <div id="mockBadge" class="mock" hidden>โหมดทดลอง — ยังไม่ได้เชื่อม Google Sheet (ข้อมูลอยู่ในเครื่องนี้เท่านั้น)</div>
+  </div>
+
+  <!-- page 1: pick a team -->
+  <section id="pickPage" hidden>
+    <h1 id="title"></h1>
+    <p class="sub">เลือกทีมของคุณ</p>
+    <div class="teams" id="teams"></div>
+  </section>
+
+  <!-- page 2: one team's survey -->
+  <section id="teamPage" hidden>
+    <h1 id="teamTitle"></h1>
+    <p class="sub" id="subtitle"></p>
+
+    <div class="grid">
+      <section class="card">
+        <h2>คำตอบของคุณ</h2>
+        <form id="form" autocomplete="off">
+          <label class="field" for="name">ชื่อ</label>
+          <input type="text" id="name" maxlength="60" placeholder="พิมพ์ชื่อของคุณ" required>
+          <table class="slots" id="pickTable"></table>
+          <label class="field" for="note">หมายเหตุ (ไม่บังคับ)</label>
+          <input type="text" id="note" maxlength="200" placeholder="เช่น สัปดาห์แรกไม่ว่าง">
+          <div class="row">
+            <button type="submit" class="primary" id="submit">ส่งคำตอบ</button>
+            <button type="button" class="ghost" id="remove" hidden>ลบคำตอบของฉัน</button>
+          </div>
+          <div class="msg" id="msg"></div>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2 id="results">ผลโหวต</h2>
+        <p class="summary" id="summary"></p>
+        <table class="slots" id="resultTable"></table>
+        <div class="legend"><span></span>ช่วงที่ว่างตรงกันมากที่สุด</div>
+        <div class="updated" id="updated"></div>
+      </section>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const MOCK = !CONFIG.scriptUrl || new URLSearchParams(location.search).has('mock');
+const SLOTS = CONFIG.days.flatMap((d) => d.times.map((t) => ({ id: `${d.id} ${t}`, label: `${d.label} ${t}` })));
+let team = null;      // current team object
+let state = { total: 0, counts: {}, mine: null };
+let busy = false;
+let timer = null;
+
+/* ---------- backend ---------- */
+// get(team, name) / save(payload) both resolve to { total, counts, mine } — names of others never come back
+const api = MOCK ? mockApi() : {
+  async get(teamId, name) {
+    const q = new URLSearchParams({ team: teamId, name: name || '' });
+    const r = await fetch(`${CONFIG.scriptUrl}?${q}`, { cache: 'no-store' });
+    return check(await r.json());
+  },
+  async save(payload) {
+    // text/plain = "simple request": no CORS preflight, which Apps Script can't answer
+    const r = await fetch(CONFIG.scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+    });
+    return check(await r.json());
+  },
+};
+
+function check(data) {
+  if (!data || !data.ok) throw new Error((data && data.error) || 'unknown error');
+  return data;
+}
+
+function mockApi() {
+  const pick = (n, seed) => SLOTS.filter((_, i) => (i * 7 + seed) % 5 < n).map((s) => s.id);
+  const sample = (seed) => ['A', 'B', 'C', 'D', 'E', 'F'].map((n, i) => ({ name: 'ตัวอย่าง ' + n, slots: pick(2, seed + i), note: '' }));
+  const key = (t) => 'daySurveyMock:' + t;
+  const load = (t) => { try { return JSON.parse(localStorage.getItem(key(t))) || sample(t.length); } catch { return sample(t.length); } };
+  const store = (t, list) => { try { localStorage.setItem(key(t), JSON.stringify(list)); } catch {} };
+  const norm = (s) => String(s || '').trim().toLowerCase();
+  const summarize = (list, name) => {
+    const counts = {};
+    list.forEach((r) => r.slots.forEach((s) => { counts[s] = (counts[s] || 0) + 1; }));
+    const me = list.find((r) => norm(r.name) === norm(name) && norm(name));
+    return { total: list.length, counts, mine: me ? { slots: me.slots, note: me.note } : null };
+  };
+  const wait = () => new Promise((r) => setTimeout(r, 250));
+  return {
+    async get(t, name) { await wait(); return summarize(load(t), name); },
+    async save(p) {
+      await wait();
+      const list = load(p.team).filter((r) => norm(r.name) !== norm(p.name));
+      if (!p.remove) list.push({ name: p.name.trim(), slots: p.slots, note: p.note || '' });
+      store(p.team, list);
+      return summarize(list, p.name);
+    },
+  };
+}
+
+/* ---------- render ---------- */
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// Same day × time table for both the form and the results; cell(day, time) fills each available slot
+function slotTable(cell) {
+  return `<thead><tr><th></th>${CONFIG.times.map((t) => `<th>${esc(t)} น.</th>`).join('')}</tr></thead>
+    <tbody>${CONFIG.days.map((d) => `<tr><th class="day">${esc(d.label)}</th>${CONFIG.times.map((t) =>
+      d.times.includes(t) ? cell(d, t, `${d.id} ${t}`) : '<td class="na">—</td>').join('')}</tr>`).join('')}
+    </tbody>`;
+}
+
+function renderPicker() {
+  $('pickTable').innerHTML = slotTable((d, t, id) =>
+    `<td><label class="pick"><input type="checkbox" value="${esc(id)}" aria-label="${esc(d.label + ' ' + t)}">ว่าง</label></td>`);
+}
+
+function renderResults() {
+  const { total, counts } = state;
+  const max = Math.max(0, ...SLOTS.map((s) => counts[s.id] || 0));
+  const best = SLOTS.filter((s) => max > 0 && (counts[s.id] || 0) === max);
+
+  $('summary').innerHTML = total === 0
+    ? 'ยังไม่มีใครตอบ — เป็นคนแรกเลย!'
+    : `ตอบแล้ว <b>${total}</b> คน · ว่างตรงกันมากที่สุด: <b>${best.map((b) => esc(b.label)).join(', ')}</b> (${max}/${total} คน)`;
+
+  $('resultTable').innerHTML = slotTable((d, t, id) => {
+    const n = counts[id] || 0;
+    const pct = total ? Math.round((n / total) * 55) : 0;   // shade up to 55% of the accent colour
+    return `<td class="res${max > 0 && n === max ? ' best' : ''}"
+      style="background:color-mix(in srgb, var(--heat) ${pct}%, transparent)">${n}<small>คน</small></td>`;
+  });
+
+  $('updated').textContent = 'อัปเดตล่าสุด ' + new Date().toLocaleTimeString('th-TH');
+  $('remove').hidden = !state.mine;
+}
+
+function fillMine() {
+  const mine = state.mine;
+  document.querySelectorAll('#pickTable input').forEach((cb) => { cb.checked = !!mine && mine.slots.includes(cb.value); });
+  $('note').value = mine ? mine.note || '' : '';
+}
+
+function setMsg(text, isErr) {
+  $('msg').textContent = text;
+  $('msg').className = 'msg' + (isErr ? ' err' : '');
+}
+
+/* ---------- actions ---------- */
+async function refresh(fill) {
+  if (!team) return;
+  const teamId = team.id;
+  try {
+    const data = await api.get(teamId, $('name').value.trim());
+    if (!team || team.id !== teamId) return;   // switched team while loading
+    state = data;
+    renderResults();
+    if (fill) fillMine();
+  } catch (e) {
+    setMsg('โหลดผลไม่สำเร็จ: ' + e.message, true);
+  }
+}
+
+async function send(payload, okText) {
+  if (busy) return;
+  busy = true;
+  $('submit').disabled = $('remove').disabled = true;
+  setMsg('กำลังบันทึก…');
+  try {
+    state = await api.save({ team: team.id, ...payload });
+    try { localStorage.setItem('daySurveyName', payload.name); } catch {}
+    renderResults();
+    if (payload.remove) fillMine();
+    setMsg(okText);
+    // one-column layout (phones): results sit below the form, so bring them into view
+    if (!payload.remove && matchMedia('(max-width: 760px)').matches) {
+      $('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  } catch (e) {
+    setMsg('บันทึกไม่สำเร็จ: ' + e.message, true);
+  } finally {
+    busy = false;
+    $('submit').disabled = $('remove').disabled = false;
+  }
+}
+
+$('form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const name = $('name').value.trim();
+  const slots = [...document.querySelectorAll('#pickTable input:checked')].map((cb) => cb.value);
+  if (!name) return setMsg('กรุณาใส่ชื่อ', true);
+  if (!slots.length) return setMsg('กรุณาเลือกอย่างน้อย 1 ช่วงเวลา', true);
+  send({ name, slots, note: $('note').value.trim() }, 'บันทึกแล้ว ✓ (ส่งซ้ำด้วยชื่อเดิม = แก้คำตอบ)');
+});
+
+$('remove').addEventListener('click', () => {
+  const name = $('name').value.trim();
+  if (!name || !confirm(`ลบคำตอบของ "${name}" ?`)) return;
+  send({ name, remove: true }, 'ลบคำตอบแล้ว');
+});
+
+$('name').addEventListener('change', () => { setMsg(''); refresh(true); });
+
+/* ---------- pages (#chess, #boardgame, or none = team picker) ---------- */
+function route() {
+  team = CONFIG.teams.find((t) => '#' + t.id === location.hash) || null;
+  $('pickPage').hidden = !!team;
+  $('teamPage').hidden = !team;
+  $('back').hidden = !team;
+  clearInterval(timer);
+  if (!team) { document.title = CONFIG.title; return; }
+
+  document.title = `${team.label} · ${CONFIG.title}`;
+  $('teamTitle').textContent = `${team.icon} ${team.label}`;
+  state = { total: 0, counts: {}, mine: null };
+  renderPicker();
+  renderResults();
+  setMsg('');
+  refresh(true);
+  timer = setInterval(() => { if (!busy && !document.hidden) refresh(false); }, CONFIG.refreshSeconds * 1000);
+}
+
+$('title').textContent = CONFIG.title;
+$('subtitle').textContent = CONFIG.subtitle;
+$('mockBadge').hidden = !MOCK;
+$('teams').innerHTML = CONFIG.teams.map((t) =>
+  `<a class="team" href="#${esc(t.id)}"><span class="icon">${t.icon}</span><span class="name">${esc(t.label)}</span></a>`).join('');
+try { $('name').value = localStorage.getItem('daySurveyName') || ''; } catch {}
+window.addEventListener('hashchange', route);
+route();
+</script>
+</body>
+</html>
